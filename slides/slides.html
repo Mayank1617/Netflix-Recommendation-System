@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Netflix Prize Recommendation System — Slides</title>
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; color: #15212b; }
+  .slide { width: 1280px; height: 720px; padding: 54px 64px; position: relative;
+           page-break-after: always; overflow: hidden; background: #ffffff; }
+  .slide:last-child { page-break-after: auto; }
+  .bar { position: absolute; top: 0; left: 0; width: 12px; height: 720px; background: #0b3d63; }
+  h1 { font-size: 46px; color: #0b3d63; line-height: 1.1; }
+  h2 { font-size: 33px; color: #0b3d63; margin-bottom: 18px; border-bottom: 3px solid #0b3d63; padding-bottom: 8px; }
+  h3 { font-size: 21px; color: #14517f; margin: 10px 0 4px; }
+  p, li { font-size: 20px; line-height: 1.5; }
+  ul { padding-left: 28px; margin-top: 6px; }
+  li { margin: 7px 0; }
+  .tag { color: #5a7184; font-size: 21px; margin-top: 14px; }
+  .foot { position: absolute; bottom: 22px; right: 40px; font-size: 13px; color: #9aa7b2; }
+  .pg { position: absolute; bottom: 22px; left: 64px; font-size: 13px; color: #9aa7b2; }
+  table { border-collapse: collapse; width: 100%; font-size: 18px; margin-top: 10px; }
+  th, td { border: 1px solid #c8c8c8; padding: 7px 10px; text-align: center; }
+  th { background: #0b3d63; color: #fff; }
+  td.l, th.l { text-align: left; }
+  .best { background: #d8f0d8; font-weight: bold; }
+  .center { display: flex; flex-direction: column; justify-content: center; height: 612px; }
+  .kpi { display: flex; gap: 18px; margin-top: 22px; }
+  .kpi div { flex: 1; background: #f3f6f9; border: 1px solid #d6dee6; border-radius: 10px; padding: 16px; text-align: center; }
+  .kpi b { display: block; font-size: 34px; color: #0b3d63; }
+  .kpi span { font-size: 15px; color: #5a7184; }
+  .two { display: flex; gap: 30px; }
+  .two > div { flex: 1; }
+  img { width: 100%; border: 1px solid #ddd; border-radius: 6px; }
+  .quote { background: #f3f6f9; border-left: 5px solid #0b3d63; padding: 12px 16px; font-size: 18px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<!-- 1 TITLE -->
+<div class="slide"><div class="bar"></div>
+  <div class="center">
+    <h1>Personalized Content Discovery<br>on the Netflix Prize Dataset</h1>
+    <p class="tag">A four-model recommendation system with explainable Top-K recommendations</p>
+    <p class="tag"><b>Mayank Kumar Agrawal</b> · 23323021 &nbsp;|&nbsp; Open Projects 2026 · IIT Roorkee · PS1</p>
+  </div>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">1</div>
+</div>
+
+<!-- 2 PROBLEM -->
+<div class="slide"><div class="bar"></div>
+  <h2>Problem Overview</h2>
+  <ul>
+    <li>Content discovery drives engagement on streaming platforms.</li>
+    <li><b>Data:</b> Netflix Prize — 100M+ ratings, 480K users, 17.7K movies, 1–5★ with timestamps.</li>
+    <li><b>Goal:</b> learn preferences → predict unseen ratings → generate <b>useful ranked Top-K</b> recommendations — not just minimise error.</li>
+    <li><b>Core challenge:</b> a ~99% sparse user–item matrix.</li>
+  </ul>
+  <div class="quote">We evaluate on <b>both</b> rating accuracy (RMSE) and ranking quality (MAP@10),
+  and study the trade-off between them.</div>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">2</div>
+</div>
+
+<!-- 3 EDA -->
+<div class="slide"><div class="bar"></div>
+  <h2>Data &amp; Key Insights (EDA)</h2>
+  <div class="two">
+    <div>
+      <ul>
+        <li>Ratings <b>positively skewed</b> (mean ≈ 3.6; 58% are 4–5★).</li>
+        <li>Ratings/user: mean 267 (50–2,981); ratings/movie: mean 3,566.</li>
+        <li><b>Popularity bias:</b> top 20% of movies = <b>56%</b> of all ratings.</li>
+        <li>Heavy long tail in both users and items.</li>
+      </ul>
+      <h3>Implication</h3>
+      <p>Dense signal favours latent-factor models; the long tail demands attention to <b>coverage</b> for genuine discovery.</p>
+    </div>
+    <div><img src="../results/eda.png" alt="EDA"></div>
+  </div>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">3</div>
+</div>
+
+<!-- 4 APPROACH -->
+<div class="slide"><div class="bar"></div>
+  <h2>Approach</h2>
+  <h3>Dense, reproducible subset</h3>
+  <p>Top 3,000 movies × 40,000 active users → <b>10.7M ratings @ 8.92% density</b>. Temporal 80/20 split (predict each user's most recent ratings). Relevance ≥ 3.5.</p>
+  <h3>Four models compared</h3>
+  <ul>
+    <li><b>Bias baseline</b> — μ + user/item biases (RMSE floor)</li>
+    <li><b>Item-based CF</b> — adjusted-cosine similarity (powers explanations)</li>
+    <li><b>Matrix Factorization (SVD)</b> — 64 latent factors, SGD on GPU</li>
+    <li><b>Neural CF</b> — MLP over embeddings <i>(innovation)</i></li>
+  </ul>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">4</div>
+</div>
+
+<!-- 5 EVALUATION -->
+<div class="slide"><div class="bar"></div>
+  <h2>Evaluation Methodology</h2>
+  <ul>
+    <li><b>RMSE</b> — rating-prediction accuracy on held-out test ratings.</li>
+    <li><b>MAP@10</b> — for each user: score all movies → <b>mask seen movies</b> → take Top-10 → Average Precision vs relevant (≥3.5) test movies.</li>
+    <li>Also: Precision@10, Recall@10, NDCG@10, and catalog <b>Coverage</b>.</li>
+    <li><b>Temporal split</b> avoids the leakage of a random split — realistic, deployment-like evaluation.</li>
+  </ul>
+  <div class="kpi">
+    <div><b>8.6M</b><span>train ratings</span></div>
+    <div><b>2.1M</b><span>test ratings</span></div>
+    <div><b>40K</b><span>users evaluated</span></div>
+    <div><b>≥3.5</b><span>relevance threshold</span></div>
+  </div>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">5</div>
+</div>
+
+<!-- 6 RESULTS -->
+<div class="slide"><div class="bar"></div>
+  <h2>Experimental Results</h2>
+  <table>
+    <tr><th class="l">Model</th><th>RMSE ↓</th><th>MAP@10 ↑</th><th>NDCG@10 ↑</th><th>Coverage ↑</th><th>train (s)</th></tr>
+    <tr><td class="l">Bias baseline</td><td>0.9039</td><td>0.0364</td><td>0.0731</td><td>0.015</td><td>0.7</td></tr>
+    <tr><td class="l">Item-based CF</td><td>0.8838</td><td>0.0658</td><td>0.1223</td><td class="best">0.810</td><td>1.6</td></tr>
+    <tr><td class="l">Matrix Factorization (SVD)</td><td>0.8611</td><td class="best">0.0720</td><td class="best">0.1266</td><td>0.139</td><td>5.9</td></tr>
+    <tr><td class="l">Neural CF</td><td class="best">0.8419</td><td>0.0423</td><td>0.0817</td><td>0.351</td><td>9.7</td></tr>
+  </table>
+  <ul>
+    <li><b>RMSE ≠ ranking:</b> NCF wins RMSE but SVD wins MAP@10 → <b>SVD is the best recommender.</b></li>
+    <li><b>Accuracy vs discovery:</b> Item-CF covers 81% of the catalog vs SVD's 14%.</li>
+    <li>All models beat the baseline and historical Cinematch (0.9514).</li>
+  </ul>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">6</div>
+</div>
+
+<!-- 7 EXAMPLES -->
+<div class="slide"><div class="bar"></div>
+  <h2>Recommendation Examples &amp; Explainability</h2>
+  <h3>✓ Success — User 64120 (likes Saving Private Ryan, Titanic, A Few Good Men)</h3>
+  <div class="quote">Recommends <b>LOTR: Return of the King</b> — <i>"because you liked The Two Towers (sim 0.68)
+  &amp; Fellowship (sim 0.66)"</i> — plus Band of Brothers, Schindler's List. Hits in test set.</div>
+  <h3>✗ Failure — User 2157060 (eclectic: Full Metal Jacket, Metropolis, JFK, Halloween)</h3>
+  <div class="quote">Diffuse cross-genre taste → sensible-but-wrong picks (Fight Club, Citizen Kane),
+  0 Top-10 hits. Hard-to-rank profiles + popularity crowding.</div>
+  <p style="margin-top:12px"><b>Hit Rate@10 = 44.5%</b> of users get ≥1 correct Top-10 recommendation;
+  every pick carries a human-readable reason.</p>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">7</div>
+</div>
+
+<!-- 8 INSIGHTS -->
+<div class="slide"><div class="bar"></div>
+  <h2>Key Insights &amp; Future Work</h2>
+  <h3>Insights</h3>
+  <ul>
+    <li>On dense data, <b>latent factors (SVD)</b> give the best accuracy–ranking blend.</li>
+    <li>Always report <b>ranking metrics</b>, not just RMSE — they disagree.</li>
+    <li>Popularity bias is measurable (coverage) and worth optimising for discovery.</li>
+  </ul>
+  <h3>Future work</h3>
+  <ul>
+    <li><b>Cold start:</b> popularity fallback, onboarding ratings, content-based <b>hybrid</b>.</li>
+    <li><b>Ranking-aware training</b> (BPR/WARP); <b>SVD++</b> &amp; temporal dynamics.</li>
+    <li>Coverage/diversity re-ranking to counter popularity bias.</li>
+  </ul>
+  <div class="foot">RecSys · Netflix Prize</div><div class="pg">8</div>
+</div>
+
+</body>
+</html>

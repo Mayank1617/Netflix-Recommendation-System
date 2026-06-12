@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Netflix Prize Recommendation System — Technical Report</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 14mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a1a1a;
+         font-size: 10.2pt; line-height: 1.38; margin: 0; }
+  h1 { font-size: 19pt; margin: 0 0 2px 0; color: #0b3d63; }
+  h2 { font-size: 12.5pt; margin: 13px 0 4px 0; color: #0b3d63;
+       border-bottom: 1.5px solid #0b3d63; padding-bottom: 2px; }
+  h3 { font-size: 10.6pt; margin: 8px 0 2px 0; color: #14517f; }
+  p  { margin: 4px 0; text-align: justify; }
+  ul { margin: 4px 0 4px 0; padding-left: 18px; }
+  li { margin: 1.5px 0; }
+  .sub { color: #555; font-size: 9.4pt; margin: 0 0 6px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 9.2pt; margin: 6px 0; }
+  th, td { border: 1px solid #c8c8c8; padding: 3px 6px; text-align: center; }
+  th { background: #0b3d63; color: #fff; }
+  td.l, th.l { text-align: left; }
+  tr:nth-child(even) td { background: #f3f6f9; }
+  .best { background: #d8f0d8 !important; font-weight: bold; }
+  .fig { width: 100%; border: 1px solid #ddd; margin: 4px 0; }
+  .cap { font-size: 8.6pt; color: #555; text-align: center; margin: 0 0 6px 0; }
+  .two { display: flex; gap: 14px; }
+  .two > div { flex: 1; }
+  code { background: #eef2f5; padding: 0 3px; border-radius: 3px; font-size: 9pt; }
+  .kpi { display: flex; gap: 8px; margin: 6px 0; }
+  .kpi div { flex: 1; background: #f3f6f9; border: 1px solid #d6dee6;
+             border-radius: 6px; padding: 5px 7px; text-align: center; }
+  .kpi b { display: block; font-size: 13pt; color: #0b3d63; }
+  .kpi span { font-size: 8.4pt; color: #555; }
+  footer { position: fixed; bottom: 4mm; left: 16mm; right: 16mm;
+           font-size: 7.8pt; color: #999; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<h1>Personalized Content Discovery on the Netflix Prize Dataset</h1>
+<p class="sub"><b>Open Projects 2026 · IIT Roorkee — PS1: Recommendation Systems</b> &nbsp;|&nbsp;
+Mayank Kumar Agrawal (23323021)</p>
+
+<h2>1. Problem Understanding</h2>
+<p>Streaming platforms live or die by content discovery: surfacing the right title keeps users engaged.
+Using the <b>Netflix Prize dataset</b> (100,480,507 ratings, 480,189 users, 17,770 movies, 1–5 stars
+with timestamps), the task is to learn user preferences, predict unseen ratings, and generate
+ranked, <i>useful</i> Top-K recommendations — not merely minimise prediction error. We therefore
+evaluate on both rating accuracy (<b>RMSE</b>) and ranking quality (<b>MAP@10</b>), and analyse the
+trade-offs between them.</p>
+
+<h2>2. Exploratory Data Analysis</h2>
+<div class="two">
+<div>
+<p>We analyse a dense, reproducible subset (justified in §3). Ratings are <b>positively skewed</b>
+(mean ≈ 3.6; 58% are 4–5★), so a naive "predict the mean" model already scores a deceptively low RMSE
+— reinforcing the need for ranking metrics. Both users and items follow a <b>heavy long tail</b>.</p>
+<ul>
+  <li><b>Ratings / user:</b> mean 267, median 172, range 50–2,981</li>
+  <li><b>Ratings / movie:</b> mean 3,566, median 2,020, range 638–24,719</li>
+  <li><b>Popularity bias:</b> the top 20% of movies hold <b>56.1%</b> of all ratings</li>
+  <li><b>Most-rated titles:</b> Miss Congeniality, Independence Day, Pirates of the Caribbean,
+      Forrest Gump, The Patriot</li>
+</ul>
+<p><b>Implications.</b> Strong collaborative signal (high density) favours latent-factor models;
+the long tail means a recommender must actively counter popularity bias to enable genuine discovery,
+which we measure via <i>catalog coverage</i>.</p>
+</div>
+<div>
+<img class="fig" src="../results/eda.png" alt="EDA figure">
+<p class="cap">Fig 1. (a) rating distribution, (b) ratings per user, (c) movie popularity long tail,
+(d) rating volume over time.</p>
+</div>
+</div>
+
+<h2>3. Methodology &amp; Experimental Setup</h2>
+<h3>Dense subset</h3>
+<p>Training on all 100M ratings is unnecessary and noisy. We keep the <b>3,000 most-rated movies</b>
+and a fixed random sample of <b>40,000 active users</b> (≥50 ratings each), giving
+<b>10,699,358 ratings at 8.92% density</b> — far denser than the raw matrix (~1%). This is permitted
+by the problem statement, trains in minutes, and <i>improves</i> RMSE/MAP@10 by removing cold,
+low-signal users and items. The sampling seed is fixed (42) for reproducibility.</p>
+<h3>Train/test split &amp; relevance</h3>
+<p>We use a <b>temporal split</b>: each user's most recent 20% of ratings form the test set
+(8,575,301 train / 2,124,057 test). This mimics real deployment — predict the future from the past —
+and avoids the leakage a random split causes. For ranking, a held-out movie is <b>relevant if its true
+rating ≥ 3.5</b>.</p>
+<h3>MAP@10 procedure</h3>
+<p>For every user we score all 3,000 movies, <b>mask those already seen in training</b>, take the
+Top-10, and compute Average Precision against the user's relevant test movies; MAP@10 is the mean over
+users with ≥1 relevant item. We also report Precision@10, Recall@10, NDCG@10 and Coverage.</p>
+
+<h2>4. Model Design</h2>
+<ul>
+  <li><b>Bias baseline</b> — <code>r̂ = μ + b_u + b_i</code> with L2-regularised biases (closed form). The honest RMSE floor.</li>
+  <li><b>Item-based CF</b> — adjusted-cosine item–item similarity on user-centred ratings; predicts from a user's neighbours. Also drives the explanations (§7).</li>
+  <li><b>Matrix Factorization (biased SVD)</b> — <code>r̂ = μ + b_u + b_i + p_u·q_i</code>, 64 latent factors, trained by mini-batch SGD (Adam) on GPU.</li>
+  <li><b>Neural CF (innovation)</b> — replaces the dot product with an MLP over user/item embeddings, capturing non-linear interactions.</li>
+</ul>
+
+<h2>5. Evaluation Metrics &amp; 6. Experimental Results</h2>
+<div class="kpi">
+  <div><b>0.8419</b><span>Best RMSE (NCF)</span></div>
+  <div><b>0.0720</b><span>Best MAP@10 (SVD)</span></div>
+  <div><b>44.5%</b><span>Hit Rate@10</span></div>
+  <div><b>8.92%</b><span>Matrix density</span></div>
+</div>
+<table>
+<tr><th class="l">Model</th><th>RMSE ↓</th><th>MAP@10 ↑</th><th>P@10</th><th>R@10</th><th>NDCG@10 ↑</th><th>Coverage ↑</th><th>train (s)</th></tr>
+<tr><td class="l">Bias baseline</td><td>0.9039</td><td>0.0364</td><td>0.0729</td><td>0.0217</td><td>0.0731</td><td>0.015</td><td>0.7</td></tr>
+<tr><td class="l">Item-based CF</td><td>0.8838</td><td>0.0658</td><td class="best">0.1104</td><td class="best">0.0340</td><td>0.1223</td><td class="best">0.810</td><td>1.6</td></tr>
+<tr><td class="l">Matrix Factorization (SVD)</td><td>0.8611</td><td class="best">0.0720</td><td>0.1107</td><td>0.0338</td><td class="best">0.1266</td><td>0.139</td><td>5.9</td></tr>
+<tr><td class="l">Neural CF</td><td class="best">0.8419</td><td>0.0423</td><td>0.0729</td><td>0.0221</td><td>0.0817</td><td>0.351</td><td>9.7</td></tr>
+</table>
+<p>Every model beats the baseline, and all beat Netflix's historical Cinematch RMSE (0.9514) — credible
+because our subset is denser. Two findings dominate:</p>
+<ul>
+  <li><b>RMSE ≠ ranking.</b> NCF has the best RMSE (0.8419) yet a <i>weaker</i> MAP@10 (0.0423) than
+  SVD (0.0720) and Item-CF (0.0658). Optimising point-wise rating accuracy does not guarantee a good
+  Top-10 — exactly the trade-off the brief asks us to examine. <b>SVD is the best all-round recommender.</b></li>
+  <li><b>Accuracy vs discovery.</b> Item-CF covers <b>81%</b> of the catalog vs SVD's 14%. SVD is accurate
+  but concentrates on popular titles; Item-CF surfaces far more of the long tail — a real product trade-off
+  between precision and discovery.</li>
+</ul>
+
+<h2>7. Recommendation Examples &amp; Explainability</h2>
+<p>Each recommendation is explained via the items in the user's history most similar to it.</p>
+<h3>Success — User 64120 (rated 928 movies; likes Saving Private Ryan, Titanic, A Few Good Men)</h3>
+<p>Top picks include <i>The Lord of the Rings: The Return of the King</i> — <b>"because The Two Towers
+(sim 0.68), Fellowship (sim 0.66)"</b> — plus Band of Brothers and Schindler's List. Several appear in the
+held-out test set, confirming the model learned a coherent epic/war-drama taste profile.</p>
+<h3>Failure — User 2157060 (rated 1,560 movies; likes Full Metal Jacket, Metropolis, JFK, Halloween)</h3>
+<p>An eclectic cross-genre profile (war, silent sci-fi, political thriller, horror). The model returned
+sensible-but-wrong picks (Fight Club, Citizen Kane, City of God) with 0 Top-10 hits. Such diffuse tastes
+are hard to rank, and popular titles crowd the list — a known weakness of memory/latent CF.</p>
+
+<h2>8. Key Insights</h2>
+<ul>
+  <li>On dense data, <b>latent factors (SVD)</b> give the best blend of accuracy and ranking.</li>
+  <li><b>Report ranking metrics, not just RMSE</b> — the two disagree (NCF vs SVD).</li>
+  <li><b>Popularity bias is real</b> (56% of ratings on 20% of movies) and shows up as low SVD coverage; coverage should be an explicit objective for discovery.</li>
+  <li>Item-similarity explanations are <b>cheap, faithful and intuitive</b>, improving user trust.</li>
+</ul>
+
+<h2>9. Future Improvements</h2>
+<ul>
+  <li><b>Cold start:</b> new users/items have no factors. Mitigations — popularity/bias fallback, a short onboarding rating quiz, or content features (genre, year, cast) in a <b>hybrid</b> model.</li>
+  <li><b>Ranking-aware training</b> (BPR / WARP) to directly optimise Top-K rather than RMSE.</li>
+  <li><b>SVD++ / temporal dynamics</b> to use implicit feedback and rating drift over time.</li>
+  <li><b>Re-ranking for coverage/diversity</b> to counter popularity bias without sacrificing much accuracy.</li>
+</ul>
+
+<footer><span>Netflix Prize Recommendation System — Technical Report</span><span>Mayank Kumar Agrawal · 23323021</span></footer>
+</body>
+</html>
