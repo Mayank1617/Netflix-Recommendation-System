@@ -24,6 +24,25 @@ Plus an **explainable recommendation** layer ("recommended because you liked A a
 - Also: Precision@10, Recall@10, NDCG@10, Coverage
 - **Temporal train/test split** — hold out each user's most recent 20% of ratings
 
+## Results at a glance
+Dense subset: **10,699,358 ratings · 40,000 users · 3,000 movies · 8.92% density** · temporal 80/20 split · relevance ≥ 3.5.
+
+| Model | RMSE ↓ | MAP@10 ↑ | P@10 | R@10 | NDCG@10 ↑ | Coverage ↑ | train (s) |
+|-------|:------:|:--------:|:----:|:----:|:---------:|:----------:|:---------:|
+| Bias baseline | 0.9039 | 0.0364 | 0.0729 | 0.0217 | 0.0731 | 0.015 | 0.7 |
+| Item-based CF | 0.8838 | 0.0658 | **0.1104** | **0.0340** | 0.1223 | **0.810** | 1.6 |
+| **Matrix Factorization (SVD)** | 0.8611 | **0.0720** | 0.1107 | 0.0338 | **0.1266** | 0.139 | 5.9 |
+| Neural CF | **0.8419** | 0.0423 | 0.0729 | 0.0221 | 0.0817 | 0.351 | 9.7 |
+
+**Key findings:** (1) *RMSE ≠ ranking* — NCF wins RMSE but **SVD is the best recommender** (top MAP@10/NDCG@10). (2) *Accuracy vs discovery* — Item-CF covers 81% of the catalog vs SVD's 14%. All models beat the baseline and historical Cinematch (0.9514). Hit Rate@10 = **44.5%**.
+
+### Exploratory data analysis
+![EDA](results/eda.png)
+
+> Full analysis, methodology, recommendation examples and explanations are in
+> [`report/report.pdf`](report/report.pdf) and [`slides/slides.pdf`](slides/slides.pdf).
+> *(GitHub may not preview PDFs inline — use the download button; the files are valid.)*
+
 ## Repository structure
 ```
 .
